@@ -18,7 +18,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const version = "0.1.0-dev"
+var version = "0.1.0-dev"
 
 func Execute() {
 	cfg, err := config.Load(config.ConfigPath())
