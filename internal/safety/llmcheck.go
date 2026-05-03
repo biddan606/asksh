@@ -30,11 +30,13 @@ func Probe(ctx context.Context, c llm.Client, cmd string) <-chan ProbeResult {
 
 func llmToSafety(v llm.Verdict) Verdict {
 	switch v {
+	case llm.VerdictSafe:
+		return Safe
 	case llm.VerdictWarn:
 		return Warn
 	case llm.VerdictDangerous:
 		return Dangerous
 	default:
-		return Safe
+		return Warn
 	}
 }

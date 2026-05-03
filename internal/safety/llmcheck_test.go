@@ -88,6 +88,18 @@ func TestProbeError(t *testing.T) {
 	}
 }
 
+func TestProbeUnknownVerdictDefaultsToWarn(t *testing.T) {
+	c := &mockClient{verdict: "UNKNOWN_VERDICT"}
+	ch := safety.Probe(context.Background(), c, "ls")
+	r := <-ch
+	if r.Err != nil {
+		t.Fatalf("unexpected error: %v", r.Err)
+	}
+	if r.Verdict != safety.Warn {
+		t.Errorf("verdict = %v; want Warn for unknown LLM verdict", r.Verdict)
+	}
+}
+
 func TestProbeContextCancel(t *testing.T) {
 	block := make(chan struct{})
 	c := &mockClient{block: block}

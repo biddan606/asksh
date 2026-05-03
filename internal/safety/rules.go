@@ -184,9 +184,11 @@ func isShell(tok string) bool {
 	return false
 }
 
-// hasRootTarget returns true if any token is exactly "/" or "~" or "~/".
+// hasRootTarget returns true if any token is exactly "/" or "~" or "~/",
+// after stripping shell quotes that would otherwise bypass the check.
 func hasRootTarget(tokens []string) bool {
 	for _, tok := range tokens {
+		tok = strings.Trim(tok, `'"`)
 		if tok == "/" || tok == "~" || tok == "~/" {
 			return true
 		}
