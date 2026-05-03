@@ -16,7 +16,7 @@
 - [x] **3.2** Ollama HTTP 클라이언트 (`internal/llm/ollama.go`)
 - [x] **3.3** OpenAI HTTP 클라이언트 (`internal/llm/openai.go`)
 - [x] **3.4** 루트 명령에 번역 연결
-- [ ] **CHECKPOINT C** — `prompts/translate.tmpl` 조정 (한국어 10개 + 영어 10개 쿼리)
+- [x] **CHECKPOINT C** — `prompts/translate.tmpl` 조정 (한국어 10개 + 영어 10개 쿼리)
 
 ## Phase 4 — 안전
 - [ ] **4.1** 1단계 규칙 기반 차단 목록 (`internal/safety/rules.go`)

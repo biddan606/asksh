@@ -53,6 +53,10 @@ func TestOllamaTranslateCleanup(t *testing.T) {
 		{"code fence with lang", "```bash\nls -la\n```", "ls -la"},
 		{"trailing newline", "ls -la\n", "ls -la"},
 		{"trailing spaces", "ls -la   ", "ls -la"},
+		{"command prefix", "Command: ls -la", "ls -la"},
+		{"korean prefix", "명령: ls -la", "ls -la"},
+		{"multiline take first", "ls -la\nThis lists all files.", "ls -la"},
+		{"multiline empty first line", "\nls -la\n", "ls -la"},
 	}
 
 	for _, tc := range cases {

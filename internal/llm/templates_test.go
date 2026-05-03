@@ -21,7 +21,7 @@ func TestTranslateTemplateEnglish(t *testing.T) {
 		t.Fatalf("Execute: %v", err)
 	}
 	out := buf.String()
-	for _, want := range []string{"/home/user/project", "darwin 14.0", "zsh", "list all files", "code fences"} {
+	for _, want := range []string{"/home/user/project", "darwin 14.0", "zsh", "list all files", "code fences", "Command:"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output missing %q:\n%s", want, out)
 		}
@@ -41,7 +41,7 @@ func TestTranslateTemplateKorean(t *testing.T) {
 		t.Fatalf("Execute: %v", err)
 	}
 	out := buf.String()
-	for _, want := range []string{"/tmp", "파일 목록", "코드 펜스"} {
+	for _, want := range []string{"/tmp", "파일 목록", "코드 펜스", "명령:"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output missing %q:\n%s", want, out)
 		}

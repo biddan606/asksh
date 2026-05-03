@@ -75,8 +75,10 @@ func (c *OllamaClient) chat(ctx context.Context, prompt string) (string, error) 
 	return cleanCmd(result.Message.Content), nil
 }
 
-// cleanCmd removes code fences, leading "$ ", and surrounding whitespace.
+// cleanCmd removes code fences, known LLM prefixes, and normalises whitespace.
 func cleanCmd(s string) string {
+	s = strings.TrimSpace(s)
+	// Extract from code fence if present.
 	if i := strings.Index(s, "```"); i != -1 {
 		s = s[i+3:]
 		if nl := strings.Index(s, "\n"); nl != -1 {
@@ -85,8 +87,24 @@ func cleanCmd(s string) string {
 		if end := strings.Index(s, "```"); end != -1 {
 			s = s[:end]
 		}
+		s = strings.TrimSpace(s)
 	}
-	s = strings.TrimPrefix(s, "$ ")
+	// Strip prefixes the LLM may add despite instructions.
+	for _, pfx := range []string{"Command: ", "명령: ", "$ "} {
+		if after, ok := strings.CutPrefix(s, pfx); ok {
+			s = after
+			break
+		}
+	}
+	// If the response contains multiple lines, take the first non-empty one.
+	if i := strings.IndexByte(s, '\n'); i != -1 {
+		first := strings.TrimSpace(s[:i])
+		if first != "" {
+			s = first
+		} else {
+			s = strings.TrimSpace(s[i+1:])
+		}
+	}
 	return strings.TrimSpace(s)
 }
 
