@@ -3,7 +3,7 @@
 ## Phase 1 — 스켈레톤 & Dry-Run 에코
 - [x] **1.1** `go.mod` + cobra 루트 부트스트랩 (`main.go`, `cmd/root.go`, `cmd/config.go`)
 - [x] **1.2** ShellContext 수집기 (`internal/context/shell.go`) + `--dry-run` 출력에 주입
-- [ ] **CHECKPOINT A** — CLI 플래그 이름 & dry-run 출력 형식 검토
+- [x] **CHECKPOINT A** — CLI 플래그 이름 & dry-run 출력 형식 검토
 
 ## Phase 2 — 설정 로드 + 마법사
 - [ ] **2.1** 설정 스키마 + 로드/저장 (`internal/config/config.go`)
