@@ -25,10 +25,10 @@
 - [x] **CHECKPOINT D** — 차단 목록 + 결합 로직 감사
 
 ## Phase 5 — 확인 프롬프트 + 실행기
-- [ ] **5.1** 대화형 확인 프롬프트 UI (`internal/prompt/confirm.go`)
-- [ ] **5.2** 쉘 명령 실행기 (`internal/executor/run.go`)
-- [ ] **5.3** 루트 명령에 모든 단계 연결
-- [ ] **CHECKPOINT E** — End-to-end 사용성 세션
+- [x] **5.1** 대화형 확인 프롬프트 UI (`internal/prompt/confirm.go`)
+- [x] **5.2** 쉘 명령 실행기 (`internal/executor/run.go`)
+- [x] **5.3** 루트 명령에 모든 단계 연결
+- [x] **CHECKPOINT E** — End-to-end 사용성 세션
 
 ## Phase 6 — 정리, 히스토리, 배포
 - [ ] **6.1** 선택 활성화 히스토리 로그 (`internal/history/log.go`)

@@ -433,3 +433,77 @@ func TestPipelineExtraLLMCheckApplied(t *testing.T) {
 		t.Errorf("expected warning from LLM dangerous verdict, got: %q", out)
 	}
 }
+
+// Checkpoint E: end-to-end usability session
+
+func TestPipelineSafeRequireConfirmExecutes(t *testing.T) {
+	mock := &mockClient{result: "echo e2e_confirm"}
+	factory := func(_ string) (llm.Client, error) { return mock, nil }
+	cfg := config.DefaultConfig()
+	cfg.Safety.RequireConfirmation = true
+	cfg.Safety.ExtraLLMCheck = false
+	out, err := executeCommandWithInput("y\n", cfg, factory, "say hello")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "e2e_confirm") {
+		t.Errorf("expected command output after confirm, got: %q", out)
+	}
+}
+
+func TestPipelineSafeRequireConfirmCancel(t *testing.T) {
+	mock := &mockClient{result: "echo e2e_cancel"}
+	factory := func(_ string) (llm.Client, error) { return mock, nil }
+	cfg := config.DefaultConfig()
+	cfg.Safety.RequireConfirmation = true
+	cfg.Safety.ExtraLLMCheck = false
+	// cancel should exit cleanly with no error; command must not execute
+	_, err := executeCommandWithInput("n\n", cfg, factory, "say hello")
+	if err != nil {
+		t.Fatalf("cancel should not return error, got: %v", err)
+	}
+}
+
+func TestPipelineSafeRequireConfirmShowsNoWarning(t *testing.T) {
+	mock := &mockClient{result: "echo safe_cmd"}
+	factory := func(_ string) (llm.Client, error) { return mock, nil }
+	cfg := config.DefaultConfig()
+	cfg.Safety.RequireConfirmation = true
+	cfg.Safety.ExtraLLMCheck = false
+	out, err := executeCommandWithInput("n\n", cfg, factory, "safe query")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Contains(out, "⚠") {
+		t.Errorf("safe command should not show warning, got: %q", out)
+	}
+	if !strings.Contains(out, "echo safe_cmd") {
+		t.Errorf("prompt should show translated command, got: %q", out)
+	}
+}
+
+func TestPipelineEditThenExecute(t *testing.T) {
+	mock := &mockClient{result: "rm -rf ./build"}
+	factory := func(_ string) (llm.Client, error) { return mock, nil }
+	cfg := config.DefaultConfig()
+	cfg.Safety.ExtraLLMCheck = false
+	// edit dangerous command to safe, then confirm
+	out, err := executeCommandWithInput("e\necho edited_output\ny\n", cfg, factory, "clean build")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "edited_output") {
+		t.Errorf("expected edited command output, got: %q", out)
+	}
+}
+
+func TestPipelineEditToBlockedCancels(t *testing.T) {
+	mock := &mockClient{result: "rm -rf ./build"}
+	factory := func(_ string) (llm.Client, error) { return mock, nil }
+	cfg := config.DefaultConfig()
+	cfg.Safety.ExtraLLMCheck = false
+	_, err := executeCommandWithInput("e\nrm -rf /\n", cfg, factory, "clean build")
+	if err != nil {
+		t.Fatalf("edit to blocked command should cancel without error, got: %v", err)
+	}
+}
