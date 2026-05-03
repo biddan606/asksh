@@ -5,10 +5,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/biddan606/asksh/internal/llm"
 	"github.com/biddan606/asksh/internal/safety"
+	"golang.org/x/term"
 )
 
 type Action int
@@ -16,8 +18,6 @@ type Action int
 const (
 	Execute Action = iota
 	Cancel
-	Edit
-	Explain
 )
 
 // Prompt holds parameters for the interactive confirmation dialog.
@@ -95,6 +95,7 @@ func Ask(p Prompt) (Action, string, error) {
 
 // render writes the SPEC §2.4 layout to w.
 func render(w io.Writer, cmd, warning, reason string) {
+	red, cyan, dim, reset := termColors(w)
 	fmt.Fprintf(w, "\n번역된 명령어: %s%s%s\n", cyan, cmd, reset)
 	if warning != "" {
 		fmt.Fprintf(w, "\n%s⚠  %s%s\n", red, warning, reset)
@@ -107,9 +108,12 @@ func render(w io.Writer, cmd, warning, reason string) {
 	fmt.Fprint(w, "\n선택 [y/n/e/?]: ")
 }
 
-const (
-	red   = "\033[31m"
-	cyan  = "\033[36m"
-	dim   = "\033[2m"
-	reset = "\033[0m"
-)
+func termColors(w io.Writer) (red, cyan, dim, reset string) {
+	if os.Getenv("NO_COLOR") != "" {
+		return "", "", "", ""
+	}
+	if f, ok := w.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
+		return "\033[31m", "\033[36m", "\033[2m", "\033[0m"
+	}
+	return "", "", "", ""
+}

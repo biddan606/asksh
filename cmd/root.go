@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -28,6 +30,11 @@ func Execute() {
 		return newClientForBackend(cfg, backend)
 	}
 	if err := NewRootCmd(cfg, factory).Execute(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			os.Exit(exitErr.ExitCode())
+		}
+		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }
@@ -50,10 +57,24 @@ func NewRootCmd(cfg config.Config, newClient func(string) (llm.Client, error)) *
 	var useOpenAI bool
 
 	root := &cobra.Command{
-		Use:     "asksh <query>",
-		Short:   "Translate natural language into shell commands",
-		Version: version,
-		Args:    cobra.MinimumNArgs(1),
+		Use:   "asksh <query>",
+		Short: "Translate natural language into shell commands",
+		Long: `asksh translates natural language queries (Korean or English) into shell
+commands and runs them after interactive safety confirmation.`,
+		Example: `  # 한국어 쿼리
+  asksh "현재 디렉토리의 .log 파일 모두 삭제"
+
+  # English query
+  asksh "delete all .log files in current directory"
+
+  # Translate only, no execution
+  asksh --dry-run "list all git branches"
+
+  # Configure backend
+  asksh config`,
+		Version:      version,
+		Args:         cobra.MinimumNArgs(1),
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := cmd.OutOrStdout()
 

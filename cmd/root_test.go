@@ -425,12 +425,13 @@ func TestPipelineExtraLLMCheckApplied(t *testing.T) {
 	factory := func(_ string) (llm.Client, error) { return mock, nil }
 	cfg := config.DefaultConfig()
 	cfg.Safety.ExtraLLMCheck = true
-	out, err := executeCommandWithInput("n\n", cfg, factory, "list files")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	// SPEC §2.3: dangerous → 차단 후 이유 설명
+	_, err := executeCommandWithInput("", cfg, factory, "list files")
+	if err == nil {
+		t.Fatal("expected error for LLM dangerous verdict, got nil")
 	}
-	if !strings.Contains(out, "⚠") {
-		t.Errorf("expected warning from LLM dangerous verdict, got: %q", out)
+	if !strings.Contains(err.Error(), "BLOCKED (LLM)") {
+		t.Errorf("expected BLOCKED (LLM) in error, got: %v", err)
 	}
 }
 
@@ -505,5 +506,31 @@ func TestPipelineEditToBlockedCancels(t *testing.T) {
 	_, err := executeCommandWithInput("e\nrm -rf /\n", cfg, factory, "clean build")
 	if err != nil {
 		t.Fatalf("edit to blocked command should cancel without error, got: %v", err)
+	}
+}
+
+// Task 6.2: exit codes, NO_COLOR, help text
+
+func TestErrorDoesNotShowUsage(t *testing.T) {
+	// When a command fails, cobra must not dump the usage/help text.
+	out, _ := executeCommandWithFactory(config.DefaultConfig(), nil, "list files")
+	if strings.Contains(out, "Usage:") {
+		t.Errorf("error output must not show Usage:, got: %q", out)
+	}
+}
+
+func TestHelpHasLongDesc(t *testing.T) {
+	out, _ := executeCommand("--help")
+	// Long description should mention natural language capability
+	lower := strings.ToLower(out)
+	if !strings.Contains(lower, "natural language") && !strings.Contains(lower, "자연어") {
+		t.Errorf("--help should include a long description, got: %q", out)
+	}
+}
+
+func TestHelpHasExamples(t *testing.T) {
+	out, _ := executeCommand("--help")
+	if !strings.Contains(strings.ToLower(out), "example") {
+		t.Errorf("--help should have an Examples section, got: %q", out)
 	}
 }

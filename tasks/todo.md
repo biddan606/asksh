@@ -31,7 +31,7 @@
 - [x] **CHECKPOINT E** — End-to-end 사용성 세션
 
 ## Phase 6 — 정리, 히스토리, 배포
-- [ ] **6.1** 선택 활성화 히스토리 로그 (`internal/history/log.go`)
-- [ ] **6.2** 종료 코드, `NO_COLOR`, 도움말 텍스트 정리
+- [x] **6.1** 선택 활성화 히스토리 로그 (`internal/history/log.go`)
+- [x] **6.2** 종료 코드, `NO_COLOR`, 도움말 텍스트 정리
 - [ ] **6.3** `goreleaser.yml` + `README.md` + Homebrew 포뮬러 스텁
 - [ ] **CHECKPOINT F** — `v0.1.0` 태그, 스모크 테스트, 배포
