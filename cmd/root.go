@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/biddan606/asksh/internal/config"
 	shellctx "github.com/biddan606/asksh/internal/context"
 	"github.com/biddan606/asksh/internal/executor"
+	"github.com/biddan606/asksh/internal/history"
 	"github.com/biddan606/asksh/internal/llm"
 	"github.com/biddan606/asksh/internal/prompt"
 	"github.com/biddan606/asksh/internal/safety"
@@ -85,8 +87,7 @@ func NewRootCmd(cfg config.Config, newClient func(string) (llm.Client, error)) *
 
 				if newClient != nil {
 					if client, err := newClient(backend); err == nil {
-						probeCh := safety.Probe(cmd.Context(), client, query)
-						r := <-probeCh
+						r := <-safety.Probe(cmd.Context(), client, query)
 						if r.Err != nil {
 							fmt.Fprintf(out, "llm:   unavailable (%s)\n", r.Err)
 						} else if r.Reason != "" {
@@ -122,7 +123,11 @@ func NewRootCmd(cfg config.Config, newClient func(string) (llm.Client, error)) *
 			combined, combinedReason := ruleVerdict, ruleReason
 			if cfg.Safety.ExtraLLMCheck {
 				r := <-safety.Probe(cmd.Context(), client, translated)
-				if r.Err == nil && r.Verdict > combined {
+				if r.Err != nil {
+					fmt.Fprintf(out, "경고: LLM 안전성 검사 실패 (%v), 규칙 기반 결과만 사용\n", r.Err)
+				} else if r.Verdict == safety.Dangerous {
+					return fmt.Errorf("BLOCKED (LLM): %s", r.Reason)
+				} else if r.Verdict > combined {
 					combined = r.Verdict
 					combinedReason = r.Reason
 				}
@@ -149,6 +154,15 @@ func NewRootCmd(cfg config.Config, newClient func(string) (llm.Client, error)) *
 					return promptErr
 				}
 				if action == prompt.Cancel {
+					if cfg.History.Enable {
+						_ = history.Append(history.Path(), history.Entry{
+							Time:    time.Now().UTC().Format(time.RFC3339),
+							Query:   query,
+							Command: translated,
+							Verdict: combined.String(),
+							Result:  "cancelled",
+						})
+					}
 					return nil
 				}
 				translated = finalCmd
@@ -156,7 +170,21 @@ func NewRootCmd(cfg config.Config, newClient func(string) (llm.Client, error)) *
 				fmt.Fprintf(out, "번역된 명령어: %s\n", translated)
 			}
 
-			return executor.Run(cmd.Context(), sc.Shell, translated, out, cmd.ErrOrStderr())
+			runErr := executor.Run(cmd.Context(), sc.Shell, translated, out, cmd.ErrOrStderr(), cmd.InOrStdin())
+			if cfg.History.Enable {
+				result := "ok"
+				if runErr != nil {
+					result = "error: " + runErr.Error()
+				}
+				_ = history.Append(history.Path(), history.Entry{
+					Time:    time.Now().UTC().Format(time.RFC3339),
+					Query:   query,
+					Command: translated,
+					Verdict: combined.String(),
+					Result:  result,
+				})
+			}
+			return runErr
 		},
 	}
 
@@ -169,3 +197,4 @@ func NewRootCmd(cfg config.Config, newClient func(string) (llm.Client, error)) *
 
 	return root
 }
+
