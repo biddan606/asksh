@@ -13,7 +13,11 @@ import (
 const version = "0.1.0-dev"
 
 func Execute() {
-	cfg, _ := config.Load(config.ConfigPath())
+	cfg, err := config.Load(config.ConfigPath())
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "config load:", err)
+		os.Exit(4)
+	}
 	if err := NewRootCmd(cfg).Execute(); err != nil {
 		os.Exit(1)
 	}
