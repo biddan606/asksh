@@ -75,3 +75,15 @@ func TestCollectWith_FallsBackToGOOS(t *testing.T) {
 		t.Error("OS should fall back to runtime.GOOS, not be empty")
 	}
 }
+
+// Checkpoint A: additional shell context invariants.
+
+func TestCollect_CWDAbsolute(t *testing.T) {
+	ctx, err := shellctx.Collect()
+	if err != nil {
+		t.Fatalf("Collect returned error: %v", err)
+	}
+	if !strings.HasPrefix(ctx.CWD, "/") {
+		t.Errorf("CWD should be absolute path, got: %q", ctx.CWD)
+	}
+}

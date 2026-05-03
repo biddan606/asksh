@@ -105,3 +105,65 @@ func TestDryRunShowsShellContext(t *testing.T) {
 		}
 	}
 }
+
+// Checkpoint A: verify exact CLI flag names and dry-run output format.
+
+func TestDryRunQueryLineFormat(t *testing.T) {
+	out, err := executeCommand("--dry-run", "list files")
+	if err != nil {
+		t.Fatalf("--dry-run returned error: %v", err)
+	}
+	if !strings.Contains(out, "query: list files") {
+		t.Errorf("expected 'query: list files' in output, got: %q", out)
+	}
+}
+
+func TestDryRunContextOnSameLine(t *testing.T) {
+	out, err := executeCommand("--dry-run", "x")
+	if err != nil {
+		t.Fatalf("--dry-run returned error: %v", err)
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, "cwd=") {
+			if !strings.Contains(line, "os=") || !strings.Contains(line, "shell=") {
+				t.Errorf("cwd=, os=, shell= must be on same line; got: %q", line)
+			}
+			return
+		}
+	}
+	t.Error("no line containing cwd= found in output")
+}
+
+func TestDryRunDoesNotExecute(t *testing.T) {
+	out, err := executeCommand("--dry-run", "x")
+	if err != nil {
+		t.Fatalf("--dry-run returned error: %v", err)
+	}
+	if strings.Contains(out, "not yet implemented") {
+		t.Errorf("--dry-run must not show execution placeholder, got: %q", out)
+	}
+}
+
+func TestWithoutDryRunShowsPlaceholder(t *testing.T) {
+	out, err := executeCommand("list files")
+	if err != nil {
+		t.Fatalf("non-dry-run returned error: %v", err)
+	}
+	if !strings.Contains(out, "not yet implemented") {
+		t.Errorf("without --dry-run expected placeholder, got: %q", out)
+	}
+}
+
+func TestConfigSubcommandRegistered(t *testing.T) {
+	_, err := executeCommand("config", "--help")
+	if err != nil {
+		t.Fatalf("config subcommand should be registered, got: %v", err)
+	}
+}
+
+func TestDryRunFlagWithoutQueryErrors(t *testing.T) {
+	_, err := executeCommand("--dry-run")
+	if err == nil {
+		t.Error("--dry-run without query should return an error")
+	}
+}
