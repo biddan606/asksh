@@ -1,0 +1,5 @@
+# Build artifact (go build -o asksh ./main.go)
+/asksh
+
+# macOS Finder metadata
+.DS_Store
