@@ -34,10 +34,15 @@ func (m *mockClient) Explain(_ context.Context, _, _ string) (string, error) {
 }
 
 func executeCommandWithFactory(cfg config.Config, factory func(string) (llm.Client, error), args ...string) (string, error) {
+	return executeCommandWithInput("", cfg, factory, args...)
+}
+
+func executeCommandWithInput(stdin string, cfg config.Config, factory func(string) (llm.Client, error), args ...string) (string, error) {
 	buf := new(bytes.Buffer)
 	root := cmd.NewRootCmd(cfg, factory)
 	root.SetOut(buf)
 	root.SetErr(buf)
+	root.SetIn(strings.NewReader(stdin))
 	root.SetArgs(args)
 	err := root.Execute()
 	return buf.String(), err
@@ -341,5 +346,90 @@ func TestDryRunLLMErrorShown(t *testing.T) {
 	}
 	if !strings.Contains(lower, "error") && !strings.Contains(lower, "unavailable") {
 		t.Errorf("dry-run should indicate llm error, got: %q", out)
+	}
+}
+
+// Task 5.3: full pipeline tests (translate → safety → prompt → execute)
+
+func TestPipelineBlockedTranslatedErrors(t *testing.T) {
+	mock := &mockClient{result: "rm -rf /"}
+	factory := func(_ string) (llm.Client, error) { return mock, nil }
+	cfg := config.DefaultConfig()
+	cfg.Safety.ExtraLLMCheck = false
+	_, err := executeCommandWithInput("", cfg, factory, "delete everything")
+	if err == nil {
+		t.Error("expected error when translated command is blocked")
+	}
+}
+
+func TestPipelineUserCancelNoError(t *testing.T) {
+	mock := &mockClient{result: "echo hello"}
+	factory := func(_ string) (llm.Client, error) { return mock, nil }
+	cfg := config.DefaultConfig()
+	cfg.Safety.ExtraLLMCheck = false
+	_, err := executeCommandWithInput("n\n", cfg, factory, "say hello")
+	if err != nil {
+		t.Errorf("cancel should not return error, got: %v", err)
+	}
+}
+
+func TestPipelineExecutesOnConfirm(t *testing.T) {
+	mock := &mockClient{result: "echo asksh_test_marker"}
+	factory := func(_ string) (llm.Client, error) { return mock, nil }
+	cfg := config.DefaultConfig()
+	cfg.Safety.ExtraLLMCheck = false
+	out, err := executeCommandWithInput("y\n", cfg, factory, "say hello")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "asksh_test_marker") {
+		t.Errorf("expected command output after confirm, got: %q", out)
+	}
+}
+
+func TestPipelineDangerousShowsWarning(t *testing.T) {
+	mock := &mockClient{result: "rm -rf ./build"}
+	factory := func(_ string) (llm.Client, error) { return mock, nil }
+	cfg := config.DefaultConfig()
+	cfg.Safety.ExtraLLMCheck = false
+	out, err := executeCommandWithInput("n\n", cfg, factory, "clean build dir")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "⚠") {
+		t.Errorf("expected warning symbol in output, got: %q", out)
+	}
+}
+
+func TestPipelineNoConfirmExecutes(t *testing.T) {
+	mock := &mockClient{result: "echo asksh_noconfirm"}
+	factory := func(_ string) (llm.Client, error) { return mock, nil }
+	cfg := config.DefaultConfig()
+	cfg.Safety.RequireConfirmation = false
+	cfg.Safety.ExtraLLMCheck = false
+	out, err := executeCommandWithInput("", cfg, factory, "say hello")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "asksh_noconfirm") {
+		t.Errorf("expected command executed without confirmation, got: %q", out)
+	}
+}
+
+func TestPipelineExtraLLMCheckApplied(t *testing.T) {
+	mock := &mockClient{
+		result:        "ls -la",
+		safetyVerdict: llm.VerdictDangerous,
+		safetyReason:  "potential data exposure",
+	}
+	factory := func(_ string) (llm.Client, error) { return mock, nil }
+	cfg := config.DefaultConfig()
+	cfg.Safety.ExtraLLMCheck = true
+	out, err := executeCommandWithInput("n\n", cfg, factory, "list files")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "⚠") {
+		t.Errorf("expected warning from LLM dangerous verdict, got: %q", out)
 	}
 }

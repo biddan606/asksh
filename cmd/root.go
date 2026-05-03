@@ -7,7 +7,9 @@ import (
 
 	"github.com/biddan606/asksh/internal/config"
 	shellctx "github.com/biddan606/asksh/internal/context"
+	"github.com/biddan606/asksh/internal/executor"
 	"github.com/biddan606/asksh/internal/llm"
+	"github.com/biddan606/asksh/internal/prompt"
 	"github.com/biddan606/asksh/internal/safety"
 	"github.com/spf13/cobra"
 )
@@ -109,8 +111,52 @@ func NewRootCmd(cfg config.Config, newClient func(string) (llm.Client, error)) *
 			if err != nil {
 				return fmt.Errorf("translate: %w", err)
 			}
-			fmt.Fprintln(out, translated)
-			return nil
+
+			// Stage 1: rule-based safety check on translated command
+			ruleVerdict, ruleReason := safety.Check(translated)
+			if ruleVerdict == safety.Blocked {
+				return fmt.Errorf("BLOCKED: %s", ruleReason)
+			}
+
+			// Stage 2: async LLM safety probe
+			combined, combinedReason := ruleVerdict, ruleReason
+			if cfg.Safety.ExtraLLMCheck {
+				r := <-safety.Probe(cmd.Context(), client, translated)
+				if r.Err == nil && r.Verdict > combined {
+					combined = r.Verdict
+					combinedReason = r.Reason
+				}
+			}
+
+			// Show confirmation prompt if command is risky or always-confirm is set
+			if combined >= safety.Warn || cfg.Safety.RequireConfirmation {
+				var warning string
+				if combined >= safety.Warn {
+					warning = "이 명령은 파괴적이며 되돌릴 수 없습니다."
+				}
+				p := prompt.Prompt{
+					Ctx:     cmd.Context(),
+					Cmd:     translated,
+					Warning: warning,
+					Reason:  combinedReason,
+					Client:  client,
+					Lang:    llm.DetectLang(query),
+					Out:     out,
+					In:      cmd.InOrStdin(),
+				}
+				action, finalCmd, promptErr := prompt.Ask(p)
+				if promptErr != nil {
+					return promptErr
+				}
+				if action == prompt.Cancel {
+					return nil
+				}
+				translated = finalCmd
+			} else {
+				fmt.Fprintf(out, "번역된 명령어: %s\n", translated)
+			}
+
+			return executor.Run(cmd.Context(), sc.Shell, translated, out, cmd.ErrOrStderr())
 		},
 	}
 
