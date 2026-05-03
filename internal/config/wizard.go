@@ -21,33 +21,36 @@ func RunWizard(r io.Reader, w io.Writer, path string) error {
 	scanner := bufio.NewScanner(r)
 	var scanErr error
 
-	prompt := func(label, current string) string {
-		fmt.Fprintf(w, "%s [%s]: ", label, current)
+	readLine := func() (line string, ok bool) {
 		if !scanner.Scan() {
 			if e := scanner.Err(); e != nil && scanErr == nil {
 				scanErr = e
 			}
+			return "", false
+		}
+		return strings.TrimSpace(scanner.Text()), true
+	}
+
+	prompt := func(label, current string) string {
+		fmt.Fprintf(w, "%s [%s]: ", label, current)
+		line, ok := readLine()
+		if !ok || line == "" {
 			return current
 		}
-		if line := strings.TrimSpace(scanner.Text()); line != "" {
-			return line
-		}
-		return current
+		return line
 	}
 
 	promptBool := func(label string, current bool) bool {
-		def := "y"
-		if !current {
-			def = "n"
+		def := "n"
+		if current {
+			def = "y"
 		}
 		fmt.Fprintf(w, "%s [%s]: ", label, def)
-		if !scanner.Scan() {
-			if e := scanner.Err(); e != nil && scanErr == nil {
-				scanErr = e
-			}
+		line, ok := readLine()
+		if !ok {
 			return current
 		}
-		switch strings.ToLower(strings.TrimSpace(scanner.Text())) {
+		switch strings.ToLower(line) {
 		case "y", "yes", "true":
 			return true
 		case "n", "no", "false":
@@ -60,14 +63,8 @@ func RunWizard(r io.Reader, w io.Writer, path string) error {
 	promptChoice := func(label, current string, choices []string) string {
 		for {
 			fmt.Fprintf(w, "%s [%s]: ", label, current)
-			if !scanner.Scan() {
-				if e := scanner.Err(); e != nil && scanErr == nil {
-					scanErr = e
-				}
-				return current
-			}
-			line := strings.TrimSpace(scanner.Text())
-			if line == "" {
+			line, ok := readLine()
+			if !ok || line == "" {
 				return current
 			}
 			for _, c := range choices {
@@ -91,16 +88,11 @@ func RunWizard(r io.Reader, w io.Writer, path string) error {
 			}
 			return current
 		}
-		if !scanner.Scan() {
-			if e := scanner.Err(); e != nil && scanErr == nil {
-				scanErr = e
-			}
+		line, ok := readLine()
+		if !ok || line == "" {
 			return current
 		}
-		if line := strings.TrimSpace(scanner.Text()); line != "" {
-			return line
-		}
-		return current
+		return line
 	}
 
 	cfg.Backend.Default = promptChoice("backend.default", cfg.Backend.Default, []string{"ollama", "openai"})
