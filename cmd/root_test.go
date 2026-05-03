@@ -167,3 +167,18 @@ func TestDryRunFlagWithoutQueryErrors(t *testing.T) {
 		t.Error("--dry-run without query should return an error")
 	}
 }
+
+func TestDryRunQueryBeforeContext(t *testing.T) {
+	out, err := executeCommand("--dry-run", "x")
+	if err != nil {
+		t.Fatalf("--dry-run returned error: %v", err)
+	}
+	queryIdx := strings.Index(out, "query:")
+	cwdIdx := strings.Index(out, "cwd=")
+	if queryIdx == -1 || cwdIdx == -1 {
+		t.Fatalf("output missing query: or cwd=, got: %q", out)
+	}
+	if queryIdx >= cwdIdx {
+		t.Errorf("query: line should appear before cwd= line, got: %q", out)
+	}
+}

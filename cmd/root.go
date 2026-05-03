@@ -28,17 +28,18 @@ func NewRootCmd() *cobra.Command {
 		Version: version,
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			query := strings.Join(args, " ")
-			if dryRun {
-				fmt.Fprintln(cmd.OutOrStdout(), "query:", query)
-				sc, err := shellctx.Collect()
-				if err != nil {
-					return err
-				}
-				fmt.Fprintf(cmd.OutOrStdout(), "cwd=%s os=%s shell=%s\n", sc.CWD, sc.OS, sc.Shell)
+			out := cmd.OutOrStdout()
+			if !dryRun {
+				fmt.Fprintln(out, "[execution not yet implemented]")
 				return nil
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "[execution not yet implemented]")
+			sc, err := shellctx.Collect()
+			if err != nil {
+				return err
+			}
+			query := strings.Join(args, " ")
+			fmt.Fprintln(out, "query:", query)
+			fmt.Fprintf(out, "cwd=%s os=%s shell=%s\n", sc.CWD, sc.OS, sc.Shell)
 			return nil
 		},
 	}

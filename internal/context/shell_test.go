@@ -2,6 +2,7 @@ package shellctx_test
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -64,18 +65,6 @@ func TestCollectWith_InjectsOSVersion(t *testing.T) {
 	}
 }
 
-func TestCollectWith_FallsBackToGOOS(t *testing.T) {
-	ctx, err := shellctx.CollectWith(func() (string, error) {
-		return "", fmt.Errorf("sw_vers failed")
-	})
-	if err != nil {
-		t.Fatalf("CollectWith returned error: %v", err)
-	}
-	if ctx.OS == "" {
-		t.Error("OS should fall back to runtime.GOOS, not be empty")
-	}
-}
-
 // Checkpoint A: additional shell context invariants.
 
 func TestCollect_CWDAbsolute(t *testing.T) {
@@ -85,5 +74,28 @@ func TestCollect_CWDAbsolute(t *testing.T) {
 	}
 	if !strings.HasPrefix(ctx.CWD, "/") {
 		t.Errorf("CWD should be absolute path, got: %q", ctx.CWD)
+	}
+}
+
+func TestCollect_ShellWhenSHELLUnset(t *testing.T) {
+	t.Setenv("SHELL", "")
+	ctx, err := shellctx.Collect()
+	if err != nil {
+		t.Fatalf("Collect returned error: %v", err)
+	}
+	if ctx.Shell != "" {
+		t.Errorf("Shell should be empty when $SHELL is unset, got: %q", ctx.Shell)
+	}
+}
+
+func TestCollectWith_FallbackEqualsGOOS(t *testing.T) {
+	ctx, err := shellctx.CollectWith(func() (string, error) {
+		return "", fmt.Errorf("sw_vers failed")
+	})
+	if err != nil {
+		t.Fatalf("CollectWith returned error: %v", err)
+	}
+	if ctx.OS != runtime.GOOS {
+		t.Errorf("OS = %q, want runtime.GOOS = %q", ctx.OS, runtime.GOOS)
 	}
 }

@@ -30,7 +30,10 @@ func CollectWith(osVersionFn func() (string, error)) (ShellContext, error) {
 		osVersion = runtime.GOOS
 	}
 
-	shell := filepath.Base(os.Getenv("SHELL"))
+	shell := ""
+	if shellEnv := os.Getenv("SHELL"); shellEnv != "" {
+		shell = filepath.Base(shellEnv)
+	}
 
 	return ShellContext{
 		CWD:   cwd,
