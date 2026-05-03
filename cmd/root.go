@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -79,7 +78,7 @@ func NewRootCmd(cfg config.Config, newClient func(string) (llm.Client, error)) *
 			if err != nil {
 				return fmt.Errorf("create client: %w", err)
 			}
-			translated, err := client.Translate(context.Background(), query, sc)
+			translated, err := client.Translate(cmd.Context(), query, sc)
 			if err != nil {
 				return fmt.Errorf("translate: %w", err)
 			}
@@ -88,7 +87,7 @@ func NewRootCmd(cfg config.Config, newClient func(string) (llm.Client, error)) *
 		},
 	}
 
-	root.Flags().BoolVar(&dryRun, "dry-run", false, "Translate only, do not execute")
+	root.Flags().BoolVar(&dryRun, "dry-run", false, "Print query and context info, skip LLM call")
 	root.Flags().BoolVar(&useOllama, "ollama", false, "Force Ollama backend")
 	root.Flags().BoolVar(&useOpenAI, "openai", false, "Force OpenAI backend")
 	root.MarkFlagsMutuallyExclusive("ollama", "openai")

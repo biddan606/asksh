@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -69,7 +70,8 @@ func (c *OpenAIClient) chat(ctx context.Context, prompt string) (string, error) 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("openai: HTTP %d", resp.StatusCode)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return "", fmt.Errorf("openai: HTTP %d: %s", resp.StatusCode, bytes.TrimSpace(body))
 	}
 
 	var result openAIResponse
@@ -84,38 +86,13 @@ func (c *OpenAIClient) chat(ctx context.Context, prompt string) (string, error) 
 }
 
 func (c *OpenAIClient) Translate(ctx context.Context, query string, sc shellctx.ShellContext) (string, error) {
-	lang := DetectLang(query)
-	var buf bytes.Buffer
-	if err := TranslateTemplate().Execute(&buf, TranslateData{
-		CWD:   sc.CWD,
-		OS:    sc.OS,
-		Shell: sc.Shell,
-		Lang:  lang,
-		Query: query,
-	}); err != nil {
-		return "", err
-	}
-	return c.chat(ctx, buf.String())
+	return translate(c.chat, ctx, query, sc)
 }
 
 func (c *OpenAIClient) SafetyCheck(ctx context.Context, cmd string) (Verdict, string, error) {
-	var buf bytes.Buffer
-	if err := SafetyTemplate().Execute(&buf, SafetyData{Cmd: cmd}); err != nil {
-		return "", "", err
-	}
-	raw, err := c.chat(ctx, buf.String())
-	if err != nil {
-		return "", "", err
-	}
-	return parseSafety(raw)
+	return checkSafety(c.chat, ctx, cmd)
 }
 
 func (c *OpenAIClient) Explain(ctx context.Context, cmd, lang string) (string, error) {
-	var prompt string
-	if lang == "ko" {
-		prompt = "다음 쉘 명령을 간단히 설명해 주세요:\n" + cmd
-	} else {
-		prompt = "Briefly explain this shell command:\n" + cmd
-	}
-	return c.chat(ctx, prompt)
+	return explain(c.chat, ctx, cmd, lang)
 }
