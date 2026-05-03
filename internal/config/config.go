@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -61,9 +62,12 @@ func Load(path string) (Config, error) {
 	cfg := DefaultConfig()
 	_, err := toml.DecodeFile(path, &cfg)
 	if errors.Is(err, os.ErrNotExist) {
-		return cfg, nil
+		err = nil
 	}
-	return cfg, err
+	if err != nil {
+		return cfg, fmt.Errorf("decode %s: %w", path, err)
+	}
+	return cfg, nil
 }
 
 func Save(path string, cfg Config) error {
@@ -75,6 +79,9 @@ func Save(path string, cfg Config) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	return toml.NewEncoder(f).Encode(cfg)
+	encErr := toml.NewEncoder(f).Encode(cfg)
+	if cerr := f.Close(); encErr == nil {
+		return cerr
+	}
+	return encErr
 }
