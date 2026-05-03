@@ -103,6 +103,53 @@ func TestWizardCustomValues(t *testing.T) {
 	}
 }
 
+func TestWizardPreservesExistingValues(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+
+	orig := config.DefaultConfig()
+	orig.Backend.Default = "openai"
+	orig.Ollama.Model = "custom-model"
+	if err := config.Save(path, orig); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	input := strings.Repeat("\n", 20)
+	if err := config.RunWizard(strings.NewReader(input), &strings.Builder{}, path); err != nil {
+		t.Fatalf("RunWizard error: %v", err)
+	}
+
+	cfg, err := config.Load(path)
+	if err != nil {
+		t.Fatalf("Load error: %v", err)
+	}
+	if cfg.Backend.Default != "openai" {
+		t.Errorf("backend.default: got %q, want openai", cfg.Backend.Default)
+	}
+	if cfg.Ollama.Model != "custom-model" {
+		t.Errorf("ollama.model: got %q, want custom-model", cfg.Ollama.Model)
+	}
+}
+
+func TestWizardSavesConfirmationMessage(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+
+	input := strings.Repeat("\n", 20)
+	var out strings.Builder
+	if err := config.RunWizard(strings.NewReader(input), &out, path); err != nil {
+		t.Fatalf("RunWizard error: %v", err)
+	}
+
+	output := out.String()
+	if !strings.Contains(output, "Configuration saved to") {
+		t.Errorf("output missing save confirmation; got: %q", output)
+	}
+	if !strings.Contains(output, path) {
+		t.Errorf("output missing path %q; got: %q", path, output)
+	}
+}
+
 func TestWizardPromptsShowDefaults(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.toml")

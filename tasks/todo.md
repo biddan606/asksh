@@ -6,10 +6,10 @@
 - [x] **CHECKPOINT A** — CLI 플래그 이름 & dry-run 출력 형식 검토
 
 ## Phase 2 — 설정 로드 + 마법사
-- [ ] **2.1** 설정 스키마 + 로드/저장 (`internal/config/config.go`)
-- [ ] **2.2** `asksh config` 대화형 마법사 (`internal/config/wizard.go`)
-- [ ] **2.3** 백엔드 재정의 플래그가 설정 사용 (`cmd/root.go` 업데이트)
-- [ ] **CHECKPOINT B** — TOML 키/기본값이 SPEC §2.5와 일치하는지 검증
+- [x] **2.1** 설정 스키마 + 로드/저장 (`internal/config/config.go`)
+- [x] **2.2** `asksh config` 대화형 마법사 (`internal/config/wizard.go`)
+- [x] **2.3** 백엔드 재정의 플래그가 설정 사용 (`cmd/root.go` 업데이트)
+- [x] **CHECKPOINT B** — TOML 키/기본값이 SPEC §2.5와 일치하는지 검증
 
 ## Phase 3 — 번역
 - [ ] **3.1** LLM 클라이언트 인터페이스 + 프롬프트 템플릿 (`internal/llm/client.go`, `prompts/`)

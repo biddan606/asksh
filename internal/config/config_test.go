@@ -105,3 +105,35 @@ func TestConfigPathIsUnderDotConfig(t *testing.T) {
 		t.Errorf("config filename should be config.toml, got %q", filepath.Base(path))
 	}
 }
+
+func TestConfigPath_XDGConfigHome(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", "/tmp/xdg-test")
+	path := config.ConfigPath()
+	want := "/tmp/xdg-test/asksh/config.toml"
+	if path != want {
+		t.Errorf("config path = %q, want %q", path, want)
+	}
+}
+
+func TestSave_CreatesNestedDirs(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "nested", "dirs", "config.toml")
+	if err := config.Save(path, config.DefaultConfig()); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("file not created: %v", err)
+	}
+}
+
+func TestLoad_InvalidTOML(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	if err := os.WriteFile(path, []byte("not valid toml = [[["), 0600); err != nil {
+		t.Fatalf("WriteFile failed: %v", err)
+	}
+	_, err := config.Load(path)
+	if err == nil {
+		t.Error("Load should return error for invalid TOML")
+	}
+}
