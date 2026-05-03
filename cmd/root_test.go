@@ -2,25 +2,50 @@ package cmd_test
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/biddan606/asksh/cmd"
 	"github.com/biddan606/asksh/internal/config"
+	shellctx "github.com/biddan606/asksh/internal/context"
+	"github.com/biddan606/asksh/internal/llm"
 )
 
-func executeCommand(args ...string) (string, error) {
-	return executeCommandWithConfig(config.DefaultConfig(), args...)
+type mockClient struct {
+	result string
+	err    error
 }
 
-func executeCommandWithConfig(cfg config.Config, args ...string) (string, error) {
+func (m *mockClient) Translate(_ context.Context, _ string, _ shellctx.ShellContext) (string, error) {
+	return m.result, m.err
+}
+
+func (m *mockClient) SafetyCheck(_ context.Context, _ string) (llm.Verdict, string, error) {
+	return llm.VerdictSafe, "", nil
+}
+
+func (m *mockClient) Explain(_ context.Context, _, _ string) (string, error) {
+	return "", nil
+}
+
+func executeCommandWithFactory(cfg config.Config, factory func(string) (llm.Client, error), args ...string) (string, error) {
 	buf := new(bytes.Buffer)
-	root := cmd.NewRootCmd(cfg)
+	root := cmd.NewRootCmd(cfg, factory)
 	root.SetOut(buf)
 	root.SetErr(buf)
 	root.SetArgs(args)
 	err := root.Execute()
 	return buf.String(), err
+}
+
+func executeCommand(args ...string) (string, error) {
+	return executeCommandWithFactory(config.DefaultConfig(), nil, args...)
+}
+
+func executeCommandWithConfig(cfg config.Config, args ...string) (string, error) {
+	return executeCommandWithFactory(cfg, nil, args...)
 }
 
 func TestVersion(t *testing.T) {
@@ -149,16 +174,6 @@ func TestDryRunDoesNotExecute(t *testing.T) {
 	}
 }
 
-func TestWithoutDryRunShowsPlaceholder(t *testing.T) {
-	out, err := executeCommand("list files")
-	if err != nil {
-		t.Fatalf("non-dry-run returned error: %v", err)
-	}
-	if !strings.Contains(out, "not yet implemented") {
-		t.Errorf("without --dry-run expected placeholder, got: %q", out)
-	}
-}
-
 func TestConfigSubcommandRegistered(t *testing.T) {
 	_, err := executeCommand("config", "--help")
 	if err != nil {
@@ -231,5 +246,33 @@ func TestDryRunUsesConfigBackend(t *testing.T) {
 	}
 	if !strings.Contains(out, "backend=openai") {
 		t.Errorf("config backend=openai should be used when no flag set, got: %q", out)
+	}
+}
+
+func TestTranslateOutputsCommand(t *testing.T) {
+	mock := &mockClient{result: "ls -la"}
+	factory := func(_ string) (llm.Client, error) { return mock, nil }
+	out, err := executeCommandWithFactory(config.DefaultConfig(), factory, "list files")
+	if err != nil {
+		t.Fatalf("translate returned error: %v", err)
+	}
+	if !strings.Contains(out, "ls -la") {
+		t.Errorf("expected 'ls -la' in output, got: %q", out)
+	}
+}
+
+func TestTranslateErrorPropagates(t *testing.T) {
+	mock := &mockClient{err: errors.New("LLM unavailable")}
+	factory := func(_ string) (llm.Client, error) { return mock, nil }
+	_, err := executeCommandWithFactory(config.DefaultConfig(), factory, "list files")
+	if err == nil {
+		t.Error("expected error when LLM fails")
+	}
+}
+
+func TestTranslateNoClientErrors(t *testing.T) {
+	_, err := executeCommandWithFactory(config.DefaultConfig(), nil, "list files")
+	if err == nil {
+		t.Error("expected error when no client factory provided")
 	}
 }

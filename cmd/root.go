@@ -1,12 +1,14 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/biddan606/asksh/internal/config"
 	shellctx "github.com/biddan606/asksh/internal/context"
+	"github.com/biddan606/asksh/internal/llm"
 	"github.com/spf13/cobra"
 )
 
@@ -18,12 +20,27 @@ func Execute() {
 		fmt.Fprintln(os.Stderr, "config load:", err)
 		os.Exit(4)
 	}
-	if err := NewRootCmd(cfg).Execute(); err != nil {
+	factory := func(backend string) (llm.Client, error) {
+		return newClientForBackend(cfg, backend)
+	}
+	if err := NewRootCmd(cfg, factory).Execute(); err != nil {
 		os.Exit(1)
 	}
 }
 
-func NewRootCmd(cfg config.Config) *cobra.Command {
+func newClientForBackend(cfg config.Config, backend string) (llm.Client, error) {
+	switch backend {
+	case "openai":
+		if cfg.OpenAI.APIKey == "" {
+			return nil, fmt.Errorf("openai: api_key not set in config")
+		}
+		return llm.NewOpenAIClient(cfg.OpenAI.APIKey, cfg.OpenAI.Model, ""), nil
+	default:
+		return llm.NewOllamaClient(cfg.Ollama.Host, cfg.Ollama.Model), nil
+	}
+}
+
+func NewRootCmd(cfg config.Config, newClient func(string) (llm.Client, error)) *cobra.Command {
 	var dryRun bool
 	var useOllama bool
 	var useOpenAI bool
@@ -35,10 +52,6 @@ func NewRootCmd(cfg config.Config) *cobra.Command {
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := cmd.OutOrStdout()
-			if !dryRun {
-				fmt.Fprintln(out, "[execution not yet implemented]")
-				return nil
-			}
 
 			backend := cfg.Backend.Default
 			if useOllama {
@@ -52,8 +65,25 @@ func NewRootCmd(cfg config.Config) *cobra.Command {
 				return err
 			}
 			query := strings.Join(args, " ")
-			fmt.Fprintln(out, "query:", query)
-			fmt.Fprintf(out, "cwd=%s os=%s shell=%s backend=%s\n", sc.CWD, sc.OS, sc.Shell, backend)
+
+			if dryRun {
+				fmt.Fprintln(out, "query:", query)
+				fmt.Fprintf(out, "cwd=%s os=%s shell=%s backend=%s\n", sc.CWD, sc.OS, sc.Shell, backend)
+				return nil
+			}
+
+			if newClient == nil {
+				return fmt.Errorf("no LLM client available")
+			}
+			client, err := newClient(backend)
+			if err != nil {
+				return fmt.Errorf("create client: %w", err)
+			}
+			translated, err := client.Translate(context.Background(), query, sc)
+			if err != nil {
+				return fmt.Errorf("translate: %w", err)
+			}
+			fmt.Fprintln(out, translated)
 			return nil
 		},
 	}

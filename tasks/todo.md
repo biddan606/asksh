@@ -12,10 +12,10 @@
 - [x] **CHECKPOINT B** — TOML 키/기본값이 SPEC §2.5와 일치하는지 검증
 
 ## Phase 3 — 번역
-- [ ] **3.1** LLM 클라이언트 인터페이스 + 프롬프트 템플릿 (`internal/llm/client.go`, `prompts/`)
-- [ ] **3.2** Ollama HTTP 클라이언트 (`internal/llm/ollama.go`)
-- [ ] **3.3** OpenAI HTTP 클라이언트 (`internal/llm/openai.go`)
-- [ ] **3.4** 루트 명령에 번역 연결
+- [x] **3.1** LLM 클라이언트 인터페이스 + 프롬프트 템플릿 (`internal/llm/client.go`, `prompts/`)
+- [x] **3.2** Ollama HTTP 클라이언트 (`internal/llm/ollama.go`)
+- [x] **3.3** OpenAI HTTP 클라이언트 (`internal/llm/openai.go`)
+- [x] **3.4** 루트 명령에 번역 연결
 - [ ] **CHECKPOINT C** — `prompts/translate.tmpl` 조정 (한국어 10개 + 영어 10개 쿼리)
 
 ## Phase 4 — 안전
