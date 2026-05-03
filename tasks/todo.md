@@ -1,7 +1,7 @@
 # asksh — Task Checklist
 
 ## Phase 1 — Skeleton & Dry-Run Echo
-- [ ] **1.1** Bootstrap `go.mod` + cobra root (`main.go`, `cmd/root.go`, `cmd/config.go`)
+- [x] **1.1** Bootstrap `go.mod` + cobra root (`main.go`, `cmd/root.go`, `cmd/config.go`)
 - [ ] **1.2** ShellContext collector (`internal/context/shell.go`) + inject into `--dry-run` output
 - [ ] **CHECKPOINT A** — Review CLI flag names & dry-run output format
 
