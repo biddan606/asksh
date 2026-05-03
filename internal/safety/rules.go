@@ -26,6 +26,14 @@ func (v Verdict) String() string {
 	return "unknown"
 }
 
+// Combine returns the more severe of two verdicts.
+func Combine(a, b Verdict) Verdict {
+	if b > a {
+		return b
+	}
+	return a
+}
+
 // Check evaluates a shell command and returns its safety verdict and reason.
 // It splits by |, ;, && and applies head-matching rules to each segment.
 func Check(cmd string) (Verdict, string) {

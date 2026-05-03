@@ -8,6 +8,7 @@ import (
 	"github.com/biddan606/asksh/internal/config"
 	shellctx "github.com/biddan606/asksh/internal/context"
 	"github.com/biddan606/asksh/internal/llm"
+	"github.com/biddan606/asksh/internal/safety"
 	"github.com/spf13/cobra"
 )
 
@@ -68,6 +69,31 @@ func NewRootCmd(cfg config.Config, newClient func(string) (llm.Client, error)) *
 			if dryRun {
 				fmt.Fprintln(out, "query:", query)
 				fmt.Fprintf(out, "cwd=%s os=%s shell=%s backend=%s\n", sc.CWD, sc.OS, sc.Shell, backend)
+
+				ruleVerdict, ruleReason := safety.Check(query)
+				if ruleReason != "" {
+					fmt.Fprintf(out, "rule:  %s (%s)\n", strings.ToUpper(ruleVerdict.String()), ruleReason)
+				} else {
+					fmt.Fprintf(out, "rule:  %s\n", strings.ToUpper(ruleVerdict.String()))
+				}
+
+				if ruleVerdict == safety.Blocked {
+					return fmt.Errorf("BLOCKED: %s", ruleReason)
+				}
+
+				if newClient != nil {
+					if client, err := newClient(backend); err == nil {
+						probeCh := safety.Probe(cmd.Context(), client, query)
+						if r := <-probeCh; r.Err == nil {
+							if r.Reason != "" {
+								fmt.Fprintf(out, "llm:   %s (%s)\n", r.Verdict.String(), r.Reason)
+							} else {
+								fmt.Fprintf(out, "llm:   %s\n", r.Verdict.String())
+							}
+						}
+					}
+				}
+
 				return nil
 			}
 

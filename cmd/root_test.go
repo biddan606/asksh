@@ -14,8 +14,11 @@ import (
 )
 
 type mockClient struct {
-	result string
-	err    error
+	result        string
+	err           error
+	safetyVerdict llm.Verdict
+	safetyReason  string
+	safetyErr     error
 }
 
 func (m *mockClient) Translate(_ context.Context, _ string, _ shellctx.ShellContext) (string, error) {
@@ -23,7 +26,7 @@ func (m *mockClient) Translate(_ context.Context, _ string, _ shellctx.ShellCont
 }
 
 func (m *mockClient) SafetyCheck(_ context.Context, _ string) (llm.Verdict, string, error) {
-	return llm.VerdictSafe, "", nil
+	return m.safetyVerdict, m.safetyReason, m.safetyErr
 }
 
 func (m *mockClient) Explain(_ context.Context, _, _ string) (string, error) {
@@ -274,5 +277,56 @@ func TestTranslateNoClientErrors(t *testing.T) {
 	_, err := executeCommandWithFactory(config.DefaultConfig(), nil, "list files")
 	if err == nil {
 		t.Error("expected error when no client factory provided")
+	}
+}
+
+func TestDryRunSafetyBlockedReturnsError(t *testing.T) {
+	_, err := executeCommand("--dry-run", "rm -rf /")
+	if err == nil {
+		t.Error("BLOCKED command should return error in dry-run")
+	}
+}
+
+func TestDryRunSafetyBlockedOutputContainsBlocked(t *testing.T) {
+	out, _ := executeCommand("--dry-run", "rm -rf /")
+	if !strings.Contains(strings.ToUpper(out), "BLOCKED") {
+		t.Errorf("BLOCKED command output should contain BLOCKED, got: %q", out)
+	}
+}
+
+func TestDryRunSafetySafeOutput(t *testing.T) {
+	out, err := executeCommand("--dry-run", "ls")
+	if err != nil {
+		t.Fatalf("unexpected error for safe command: %v", err)
+	}
+	if !strings.Contains(strings.ToUpper(out), "SAFE") {
+		t.Errorf("safe command dry-run output should contain SAFE, got: %q", out)
+	}
+}
+
+func TestDryRunSafetyDangerousOutput(t *testing.T) {
+	out, err := executeCommand("--dry-run", "rm -rf ./node_modules")
+	if err != nil {
+		t.Fatalf("unexpected error for dangerous (non-blocked) command: %v", err)
+	}
+	upper := strings.ToUpper(out)
+	if !strings.Contains(upper, "DANGEROUS") {
+		t.Errorf("dangerous command dry-run output should contain DANGEROUS, got: %q", out)
+	}
+	if !strings.Contains(strings.ToLower(out), "rule") {
+		t.Errorf("dangerous rule output should mention 'rule', got: %q", out)
+	}
+}
+
+func TestDryRunSafetyLLMVerdictShown(t *testing.T) {
+	mock := &mockClient{safetyVerdict: llm.VerdictDangerous, safetyReason: "deletes files"}
+	factory := func(_ string) (llm.Client, error) { return mock, nil }
+	out, _ := executeCommandWithFactory(config.DefaultConfig(), factory, "--dry-run", "rm -rf ./node_modules")
+	lower := strings.ToLower(out)
+	if !strings.Contains(lower, "llm") {
+		t.Errorf("dry-run with client should show llm verdict, got: %q", out)
+	}
+	if !strings.Contains(lower, "dangerous") {
+		t.Errorf("dry-run with dangerous llm verdict should show dangerous, got: %q", out)
 	}
 }

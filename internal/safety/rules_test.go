@@ -85,3 +85,25 @@ func TestCheck(t *testing.T) {
 		})
 	}
 }
+
+func TestCombine(t *testing.T) {
+	tests := []struct {
+		a, b safety.Verdict
+		want safety.Verdict
+	}{
+		{safety.Safe, safety.Safe, safety.Safe},
+		{safety.Safe, safety.Warn, safety.Warn},
+		{safety.Warn, safety.Safe, safety.Warn},
+		{safety.Warn, safety.Dangerous, safety.Dangerous},
+		{safety.Dangerous, safety.Warn, safety.Dangerous},
+		{safety.Safe, safety.Blocked, safety.Blocked},
+		{safety.Blocked, safety.Safe, safety.Blocked},
+		{safety.Dangerous, safety.Blocked, safety.Blocked},
+	}
+	for _, tt := range tests {
+		got := safety.Combine(tt.a, tt.b)
+		if got != tt.want {
+			t.Errorf("Combine(%v, %v) = %v; want %v", tt.a, tt.b, got, tt.want)
+		}
+	}
+}
