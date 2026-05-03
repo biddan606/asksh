@@ -50,8 +50,14 @@ func Check(cmd string) (Verdict, string) {
 		}
 	}
 
+	// Subshell expansion can execute arbitrary commands; flag as at least Warn.
 	worst := Safe
 	worstReason := ""
+	if strings.Contains(cmd, "$(") || strings.ContainsRune(cmd, '`') {
+		worst = Warn
+		worstReason = "subshell expansion detected"
+	}
+
 	for _, seg := range splitSegments(cmd) {
 		v, r := checkSegment(seg)
 		if v > worst {
@@ -83,6 +89,33 @@ func checkSegment(seg string) (Verdict, string) {
 		return Safe, ""
 	}
 	head := tokens[0]
+
+	// Shell invoked with -c executes arbitrary code — always blocked.
+	if isShell(head) {
+		for _, tok := range tokens[1:] {
+			if tok == "-c" {
+				return Blocked, "shell invoked with -c can execute arbitrary commands"
+			}
+		}
+	}
+
+	// nohup: delegate to the wrapped command's verdict.
+	if head == "nohup" {
+		if len(tokens) > 1 {
+			return checkSegment(strings.Join(tokens[1:], " "))
+		}
+		return Safe, ""
+	}
+
+	// find -exec/-execdir can execute arbitrary commands.
+	if head == "find" {
+		for _, tok := range tokens[1:] {
+			if tok == "-exec" || tok == "-execdir" {
+				return Dangerous, "find -exec can execute arbitrary commands"
+			}
+		}
+		return Safe, ""
+	}
 
 	// sudo: always at least DANGEROUS; check for blocked sub-commands.
 	if head == "sudo" {

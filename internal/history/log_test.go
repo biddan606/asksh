@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/biddan606/asksh/internal/history"
@@ -105,6 +106,23 @@ func TestAppend_CreatesMissingParentDirs(t *testing.T) {
 
 	if _, err := os.Stat(path); err != nil {
 		t.Errorf("file not created: %v", err)
+	}
+}
+
+func TestPath_DefaultUnderDotLocalShare(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", "")
+	got := history.Path()
+	if !strings.Contains(got, filepath.Join(".local", "share", "asksh", "history.log")) {
+		t.Errorf("Path() = %q, want it to contain .local/share/asksh/history.log", got)
+	}
+}
+
+func TestPath_XDGDataHome(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", dir)
+	want := filepath.Join(dir, "asksh", "history.log")
+	if got := history.Path(); got != want {
+		t.Errorf("Path() = %q, want %q", got, want)
 	}
 }
 

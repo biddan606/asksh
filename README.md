@@ -28,12 +28,15 @@ brew install asksh
 [Releases](https://github.com/biddan606/asksh/releases) 페이지에서 최신 버전을 다운로드합니다.
 
 ```bash
+# VERSION을 다운로드할 버전으로 교체하세요 (예: 0.1.0)
+VERSION=0.1.0
+
 # Apple Silicon
-curl -L https://github.com/biddan606/asksh/releases/latest/download/asksh_darwin_arm64.tar.gz | tar xz
+curl -L "https://github.com/biddan606/asksh/releases/download/v${VERSION}/asksh_${VERSION}_darwin_arm64.tar.gz" | tar xz
 sudo mv asksh /usr/local/bin/
 
 # Intel Mac
-curl -L https://github.com/biddan606/asksh/releases/latest/download/asksh_darwin_amd64.tar.gz | tar xz
+curl -L "https://github.com/biddan606/asksh/releases/download/v${VERSION}/asksh_${VERSION}_darwin_amd64.tar.gz" | tar xz
 sudo mv asksh /usr/local/bin/
 ```
 

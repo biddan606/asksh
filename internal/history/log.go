@@ -7,6 +7,8 @@ import (
 )
 
 // Path returns the default XDG-aware history log path.
+// History is runtime-generated data, so XDG_DATA_HOME (~/.local/share) is used,
+// not XDG_CONFIG_HOME (~/.config).
 func Path() string {
 	if dir, ok := os.LookupEnv("XDG_DATA_HOME"); ok && dir != "" {
 		return filepath.Join(dir, "asksh", "history.log")

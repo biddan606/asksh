@@ -3,13 +3,17 @@ package cmd_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/biddan606/asksh/cmd"
 	"github.com/biddan606/asksh/internal/config"
 	shellctx "github.com/biddan606/asksh/internal/context"
+	"github.com/biddan606/asksh/internal/history"
 	"github.com/biddan606/asksh/internal/llm"
 )
 
@@ -260,9 +264,11 @@ func TestDryRunUsesConfigBackend(t *testing.T) {
 func TestTranslateOutputsCommand(t *testing.T) {
 	mock := &mockClient{result: "ls -la"}
 	factory := func(_ string) (llm.Client, error) { return mock, nil }
-	out, err := executeCommandWithFactory(config.DefaultConfig(), factory, "list files")
-	if err != nil {
-		t.Fatalf("translate returned error: %v", err)
+	cfg := config.DefaultConfig()
+	cfg.Safety.ExtraLLMCheck = false
+	out, err := executeCommandWithInput("n\n", cfg, factory, "list files")
+	if err != nil && !errors.Is(err, cmd.ErrCancelled) {
+		t.Fatalf("translate returned unexpected error: %v", err)
 	}
 	if !strings.Contains(out, "ls -la") {
 		t.Errorf("expected 'ls -la' in output, got: %q", out)
@@ -362,14 +368,14 @@ func TestPipelineBlockedTranslatedErrors(t *testing.T) {
 	}
 }
 
-func TestPipelineUserCancelNoError(t *testing.T) {
+func TestPipelineUserCancelExitsNonZero(t *testing.T) {
 	mock := &mockClient{result: "echo hello"}
 	factory := func(_ string) (llm.Client, error) { return mock, nil }
 	cfg := config.DefaultConfig()
 	cfg.Safety.ExtraLLMCheck = false
 	_, err := executeCommandWithInput("n\n", cfg, factory, "say hello")
-	if err != nil {
-		t.Errorf("cancel should not return error, got: %v", err)
+	if !errors.Is(err, cmd.ErrCancelled) {
+		t.Errorf("cancel should return ErrCancelled, got: %v", err)
 	}
 }
 
@@ -393,7 +399,7 @@ func TestPipelineDangerousShowsWarning(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Safety.ExtraLLMCheck = false
 	out, err := executeCommandWithInput("n\n", cfg, factory, "clean build dir")
-	if err != nil {
+	if err != nil && !errors.Is(err, cmd.ErrCancelled) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !strings.Contains(out, "⚠") {
@@ -458,10 +464,10 @@ func TestPipelineSafeRequireConfirmCancel(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Safety.RequireConfirmation = true
 	cfg.Safety.ExtraLLMCheck = false
-	// cancel should exit cleanly with no error; command must not execute
+	// cancel should return ErrCancelled (exit code 1); command must not execute
 	_, err := executeCommandWithInput("n\n", cfg, factory, "say hello")
-	if err != nil {
-		t.Fatalf("cancel should not return error, got: %v", err)
+	if !errors.Is(err, cmd.ErrCancelled) {
+		t.Fatalf("cancel should return ErrCancelled, got: %v", err)
 	}
 }
 
@@ -472,7 +478,7 @@ func TestPipelineSafeRequireConfirmShowsNoWarning(t *testing.T) {
 	cfg.Safety.RequireConfirmation = true
 	cfg.Safety.ExtraLLMCheck = false
 	out, err := executeCommandWithInput("n\n", cfg, factory, "safe query")
-	if err != nil {
+	if err != nil && !errors.Is(err, cmd.ErrCancelled) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if strings.Contains(out, "⚠") {
@@ -504,8 +510,8 @@ func TestPipelineEditToBlockedCancels(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Safety.ExtraLLMCheck = false
 	_, err := executeCommandWithInput("e\nrm -rf /\n", cfg, factory, "clean build")
-	if err != nil {
-		t.Fatalf("edit to blocked command should cancel without error, got: %v", err)
+	if !errors.Is(err, cmd.ErrCancelled) {
+		t.Fatalf("edit to blocked command should return ErrCancelled, got: %v", err)
 	}
 }
 
@@ -532,5 +538,101 @@ func TestHelpHasExamples(t *testing.T) {
 	out, _ := executeCommand("--help")
 	if !strings.Contains(strings.ToLower(out), "example") {
 		t.Errorf("--help should have an Examples section, got: %q", out)
+	}
+}
+
+// logHistory integration tests
+
+func readHistoryEntries(t *testing.T, dir string) []history.Entry {
+	t.Helper()
+	path := filepath.Join(dir, "asksh", "history.log")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile %s: %v", path, err)
+	}
+	var entries []history.Entry
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		if line == "" {
+			continue
+		}
+		var e history.Entry
+		if err := json.Unmarshal([]byte(line), &e); err != nil {
+			t.Fatalf("unmarshal %q: %v", line, err)
+		}
+		entries = append(entries, e)
+	}
+	return entries
+}
+
+func TestPipelineHistoryWrittenOnExecute(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", dir)
+
+	mock := &mockClient{result: "echo history_test"}
+	factory := func(_ string) (llm.Client, error) { return mock, nil }
+	cfg := config.DefaultConfig()
+	cfg.History.Enable = true
+	cfg.Safety.ExtraLLMCheck = false
+
+	_, err := executeCommandWithInput("y\n", cfg, factory, "say hello")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	entries := readHistoryEntries(t, dir)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 history entry, got %d", len(entries))
+	}
+	e := entries[0]
+	if e.Query != "say hello" {
+		t.Errorf("entry.Query = %q, want %q", e.Query, "say hello")
+	}
+	if e.Command != "echo history_test" {
+		t.Errorf("entry.Command = %q, want %q", e.Command, "echo history_test")
+	}
+	if e.Result != "ok" {
+		t.Errorf("entry.Result = %q, want \"ok\"", e.Result)
+	}
+}
+
+func TestPipelineHistoryWrittenOnCancel(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", dir)
+
+	mock := &mockClient{result: "echo history_cancel"}
+	factory := func(_ string) (llm.Client, error) { return mock, nil }
+	cfg := config.DefaultConfig()
+	cfg.History.Enable = true
+	cfg.Safety.ExtraLLMCheck = false
+
+	_, err := executeCommandWithInput("n\n", cfg, factory, "cancel query")
+	if !errors.Is(err, cmd.ErrCancelled) {
+		t.Fatalf("expected ErrCancelled, got: %v", err)
+	}
+
+	entries := readHistoryEntries(t, dir)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 history entry, got %d", len(entries))
+	}
+	if entries[0].Result != "cancelled" {
+		t.Errorf("entry.Result = %q, want \"cancelled\"", entries[0].Result)
+	}
+}
+
+func TestPipelineHistoryNotWrittenWhenDisabled(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", dir)
+
+	mock := &mockClient{result: "echo no_history"}
+	factory := func(_ string) (llm.Client, error) { return mock, nil }
+	cfg := config.DefaultConfig()
+	cfg.History.Enable = false
+	cfg.Safety.ExtraLLMCheck = false
+
+	_, _ = executeCommandWithInput("y\n", cfg, factory, "say hello")
+
+	path := filepath.Join(dir, "asksh", "history.log")
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("history file should not exist when disabled, but stat returned: %v", err)
 	}
 }

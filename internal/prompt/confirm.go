@@ -22,14 +22,15 @@ const (
 
 // Prompt holds parameters for the interactive confirmation dialog.
 type Prompt struct {
-	Ctx     context.Context
-	Cmd     string
-	Warning string
-	Reason  string
-	Client  llm.Client
-	Lang    string
-	Out     io.Writer
-	In      io.Reader
+	Ctx           context.Context
+	Cmd           string
+	Warning       string
+	Reason        string
+	Client        llm.Client
+	Lang          string
+	Out           io.Writer
+	In            io.Reader
+	ExtraLLMCheck bool
 }
 
 // Ask renders the §2.4 confirmation UI and loops until the user picks
@@ -67,11 +68,23 @@ func Ask(p Prompt) (Action, string, error) {
 				continue
 			}
 			v, r := safety.Check(newCmd)
-			cmd = newCmd
 			if v == safety.Blocked {
 				fmt.Fprintf(p.Out, "\n차단됨: %s\n", r)
 				return Cancel, "", nil
-			} else if v >= safety.Warn {
+			}
+			if p.ExtraLLMCheck && p.Client != nil {
+				result := <-safety.Probe(p.Ctx, p.Client, newCmd)
+				if result.Err == nil && result.Verdict == safety.Dangerous {
+					fmt.Fprintf(p.Out, "\nLLM 안전성 검사 차단됨: %s\n", result.Reason)
+					return Cancel, "", nil
+				}
+				if result.Err == nil && result.Verdict > v {
+					v = result.Verdict
+					r = result.Reason
+				}
+			}
+			cmd = newCmd
+			if v >= safety.Warn {
 				warning = "이 명령은 파괴적이며 되돌릴 수 없습니다."
 				reason = r
 			} else {

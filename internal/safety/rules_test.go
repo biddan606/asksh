@@ -102,6 +102,34 @@ func TestCheck(t *testing.T) {
 		{"diskutil info disk0", safety.Safe},                     // read-only diskutil
 		{"diskutil list", safety.Safe},                           // no erase subcommand
 		{"echo data | sh", safety.Safe},                          // not curl/wget
+
+		// BLOCKED — shell with -c flag
+		{"bash -c 'rm -rf /'", safety.Blocked},
+		{"sh -c 'echo test'", safety.Blocked},
+		{"zsh -c 'ls'", safety.Blocked},
+		{"/bin/bash -c 'whoami'", safety.Blocked},
+
+		// BLOCKED — nohup wrapping a blocked command
+		{"nohup rm -rf /", safety.Blocked},
+
+		// DANGEROUS — nohup wrapping a dangerous command
+		{"nohup rm -rf ~/Documents", safety.Dangerous},
+
+		// DANGEROUS — find -exec/-execdir
+		{"find / -name '*.log' -exec rm {} ;", safety.Dangerous},
+		{"find . -execdir cat {} ;", safety.Dangerous},
+
+		// WARN — subshell expansion
+		{"echo $(cat /etc/passwd)", safety.Warn},
+		{"rm `cat files.txt`", safety.Warn},
+
+		// SAFE — shell without -c flag is fine
+		{"bash --version", safety.Safe},
+		{"sh --login", safety.Safe},
+
+		// SAFE — find without -exec
+		{"find . -name '*.go'", safety.Safe},
+		{"find /tmp -type f", safety.Safe},
 	}
 
 	for _, tt := range tests {
@@ -132,6 +160,24 @@ func TestCombine(t *testing.T) {
 		got := safety.Combine(tt.a, tt.b)
 		if got != tt.want {
 			t.Errorf("Combine(%v, %v) = %v; want %v", tt.a, tt.b, got, tt.want)
+		}
+	}
+}
+
+func TestVerdictString(t *testing.T) {
+	tests := []struct {
+		v    safety.Verdict
+		want string
+	}{
+		{safety.Safe, "safe"},
+		{safety.Warn, "warn"},
+		{safety.Dangerous, "dangerous"},
+		{safety.Blocked, "blocked"},
+		{safety.Verdict(99), "unknown"},
+	}
+	for _, tt := range tests {
+		if got := tt.v.String(); got != tt.want {
+			t.Errorf("Verdict(%d).String() = %q, want %q", tt.v, got, tt.want)
 		}
 	}
 }

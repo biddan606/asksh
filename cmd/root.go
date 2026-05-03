@@ -20,6 +20,9 @@ import (
 
 var version = "0.1.0-dev"
 
+// ErrCancelled is returned when the user declines to execute at the confirmation prompt.
+var ErrCancelled = errors.New("cancelled by user")
+
 func Execute() {
 	cfg, err := config.Load(config.ConfigPath())
 	if err != nil {
@@ -34,8 +37,22 @@ func Execute() {
 		if errors.As(err, &exitErr) {
 			os.Exit(exitErr.ExitCode())
 		}
-		fmt.Fprintln(os.Stderr, "error:", err)
+		if !errors.Is(err, ErrCancelled) {
+			fmt.Fprintln(os.Stderr, "error:", err)
+		}
 		os.Exit(1)
+	}
+}
+
+func logHistory(cfg config.Config, query, command, verdict, result string) {
+	if cfg.History.Enable {
+		_ = history.Append(history.Path(), history.Entry{
+			Time:    time.Now().UTC().Format(time.RFC3339),
+			Query:   query,
+			Command: command,
+			Verdict: verdict,
+			Result:  result,
+		})
 	}
 }
 
@@ -161,30 +178,23 @@ commands and runs them after interactive safety confirmation.`,
 					warning = "이 명령은 파괴적이며 되돌릴 수 없습니다."
 				}
 				p := prompt.Prompt{
-					Ctx:     cmd.Context(),
-					Cmd:     translated,
-					Warning: warning,
-					Reason:  combinedReason,
-					Client:  client,
-					Lang:    llm.DetectLang(query),
-					Out:     out,
-					In:      cmd.InOrStdin(),
+					Ctx:           cmd.Context(),
+					Cmd:           translated,
+					Warning:       warning,
+					Reason:        combinedReason,
+					Client:        client,
+					Lang:          llm.DetectLang(query),
+					Out:           out,
+					In:            cmd.InOrStdin(),
+					ExtraLLMCheck: cfg.Safety.ExtraLLMCheck,
 				}
 				action, finalCmd, promptErr := prompt.Ask(p)
 				if promptErr != nil {
 					return promptErr
 				}
 				if action == prompt.Cancel {
-					if cfg.History.Enable {
-						_ = history.Append(history.Path(), history.Entry{
-							Time:    time.Now().UTC().Format(time.RFC3339),
-							Query:   query,
-							Command: translated,
-							Verdict: combined.String(),
-							Result:  "cancelled",
-						})
-					}
-					return nil
+					logHistory(cfg, query, translated, combined.String(), "cancelled")
+					return ErrCancelled
 				}
 				translated = finalCmd
 			} else {
@@ -192,19 +202,11 @@ commands and runs them after interactive safety confirmation.`,
 			}
 
 			runErr := executor.Run(cmd.Context(), sc.Shell, translated, out, cmd.ErrOrStderr(), cmd.InOrStdin())
-			if cfg.History.Enable {
-				result := "ok"
-				if runErr != nil {
-					result = "error: " + runErr.Error()
-				}
-				_ = history.Append(history.Path(), history.Entry{
-					Time:    time.Now().UTC().Format(time.RFC3339),
-					Query:   query,
-					Command: translated,
-					Verdict: combined.String(),
-					Result:  result,
-				})
+			result := "ok"
+			if runErr != nil {
+				result = "error: " + runErr.Error()
 			}
+			logHistory(cfg, query, translated, combined.String(), result)
 			return runErr
 		},
 	}
