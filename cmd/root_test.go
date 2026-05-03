@@ -93,3 +93,15 @@ func TestHelpContainsUsage(t *testing.T) {
 		t.Errorf("--help output %q does not contain 'asksh'", out)
 	}
 }
+
+func TestDryRunShowsShellContext(t *testing.T) {
+	out, err := executeCommand("--dry-run", "x")
+	if err != nil {
+		t.Fatalf("--dry-run returned error: %v", err)
+	}
+	for _, key := range []string{"cwd=", "os=", "shell="} {
+		if !strings.Contains(out, key) {
+			t.Errorf("--dry-run output %q does not contain %q", out, key)
+		}
+	}
+}

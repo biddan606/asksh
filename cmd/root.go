@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	shellctx "github.com/biddan606/asksh/internal/context"
 	"github.com/spf13/cobra"
 )
 
@@ -30,6 +31,11 @@ func NewRootCmd() *cobra.Command {
 			query := strings.Join(args, " ")
 			if dryRun {
 				fmt.Fprintln(cmd.OutOrStdout(), "query:", query)
+				sc, err := shellctx.Collect()
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "cwd=%s os=%s shell=%s\n", sc.CWD, sc.OS, sc.Shell)
 				return nil
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), "[execution not yet implemented]")
