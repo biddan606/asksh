@@ -64,15 +64,32 @@ func TestBareCommandErrors(t *testing.T) {
 
 func TestBackendFlags(t *testing.T) {
 	tests := []struct {
+		name string
 		args []string
 	}{
-		{[]string{"--ollama", "--dry-run", "x"}},
-		{[]string{"--openai", "--dry-run", "x"}},
+		{"ollama alone", []string{"--ollama", "--dry-run", "x"}},
+		{"openai alone", []string{"--openai", "--dry-run", "x"}},
 	}
 	for _, tt := range tests {
-		_, err := executeCommand(tt.args...)
-		if err != nil {
-			t.Errorf("args %v returned error: %v", tt.args, err)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := executeCommand(tt.args...)
+			if err != nil {
+				t.Errorf("args %v returned error: %v", tt.args, err)
+			}
+		})
+	}
+}
+
+func TestMutuallyExclusiveBackendFlags(t *testing.T) {
+	_, err := executeCommand("--ollama", "--openai", "--dry-run", "x")
+	if err == nil {
+		t.Error("--ollama and --openai together should return an error")
+	}
+}
+
+func TestHelpContainsUsage(t *testing.T) {
+	out, _ := executeCommand("--help")
+	if !strings.Contains(out, "asksh") {
+		t.Errorf("--help output %q does not contain 'asksh'", out)
 	}
 }

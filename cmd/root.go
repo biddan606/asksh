@@ -40,6 +40,7 @@ func NewRootCmd() *cobra.Command {
 	root.Flags().BoolVar(&dryRun, "dry-run", false, "Translate only, do not execute")
 	root.Flags().BoolVar(&useOllama, "ollama", false, "Force Ollama backend")
 	root.Flags().BoolVar(&useOpenAI, "openai", false, "Force OpenAI backend")
+	root.MarkFlagsMutuallyExclusive("ollama", "openai")
 
 	root.AddCommand(newConfigCmd())
 
