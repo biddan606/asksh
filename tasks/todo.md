@@ -19,10 +19,10 @@
 - [x] **CHECKPOINT C** — `prompts/translate.tmpl` 조정 (한국어 10개 + 영어 10개 쿼리)
 
 ## Phase 4 — 안전
-- [ ] **4.1** 1단계 규칙 기반 차단 목록 (`internal/safety/rules.go`)
-- [ ] **4.2** 2단계 비동기 LLM 안전성 검사 (`internal/safety/llmcheck.go`)
-- [ ] **4.3** 판정 결합 + `--dry-run`에 표시
-- [ ] **CHECKPOINT D** — 차단 목록 + 결합 로직 감사
+- [x] **4.1** 1단계 규칙 기반 차단 목록 (`internal/safety/rules.go`)
+- [x] **4.2** 2단계 비동기 LLM 안전성 검사 (`internal/safety/llmcheck.go`)
+- [x] **4.3** 판정 결합 + `--dry-run`에 표시
+- [x] **CHECKPOINT D** — 차단 목록 + 결합 로직 감사
 
 ## Phase 5 — 확인 프롬프트 + 실행기
 - [ ] **5.1** 대화형 확인 프롬프트 UI (`internal/prompt/confirm.go`)

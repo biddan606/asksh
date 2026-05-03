@@ -45,7 +45,7 @@ func Check(cmd string) (Verdict, string) {
 		rt := strings.Fields(strings.TrimSpace(pipeParts[i+1]))
 		if len(lt) > 0 && len(rt) > 0 &&
 			(lt[0] == "curl" || lt[0] == "wget") &&
-			(rt[0] == "sh" || rt[0] == "bash") {
+			isShell(rt[0]) {
 			return Blocked, "piping download to shell is blocked"
 		}
 	}
@@ -173,6 +173,15 @@ func checkSegment(seg string) (Verdict, string) {
 	}
 
 	return Safe, ""
+}
+
+// isShell returns true if the token is a known shell interpreter.
+func isShell(tok string) bool {
+	switch tok {
+	case "sh", "bash", "zsh", "dash", "/bin/sh", "/bin/bash", "/bin/zsh", "/bin/dash":
+		return true
+	}
+	return false
 }
 
 // hasRootTarget returns true if any token is exactly "/" or "~" or "~/".

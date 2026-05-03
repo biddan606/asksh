@@ -330,3 +330,16 @@ func TestDryRunSafetyLLMVerdictShown(t *testing.T) {
 		t.Errorf("dry-run with dangerous llm verdict should show dangerous, got: %q", out)
 	}
 }
+
+func TestDryRunLLMErrorShown(t *testing.T) {
+	mock := &mockClient{safetyErr: errors.New("connection refused")}
+	factory := func(_ string) (llm.Client, error) { return mock, nil }
+	out, _ := executeCommandWithFactory(config.DefaultConfig(), factory, "--dry-run", "ls")
+	lower := strings.ToLower(out)
+	if !strings.Contains(lower, "llm") {
+		t.Errorf("dry-run should show llm line even on error, got: %q", out)
+	}
+	if !strings.Contains(lower, "error") && !strings.Contains(lower, "unavailable") {
+		t.Errorf("dry-run should indicate llm error, got: %q", out)
+	}
+}

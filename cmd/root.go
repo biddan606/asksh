@@ -84,12 +84,13 @@ func NewRootCmd(cfg config.Config, newClient func(string) (llm.Client, error)) *
 				if newClient != nil {
 					if client, err := newClient(backend); err == nil {
 						probeCh := safety.Probe(cmd.Context(), client, query)
-						if r := <-probeCh; r.Err == nil {
-							if r.Reason != "" {
-								fmt.Fprintf(out, "llm:   %s (%s)\n", r.Verdict.String(), r.Reason)
-							} else {
-								fmt.Fprintf(out, "llm:   %s\n", r.Verdict.String())
-							}
+						r := <-probeCh
+						if r.Err != nil {
+							fmt.Fprintf(out, "llm:   unavailable (%s)\n", r.Err)
+						} else if r.Reason != "" {
+							fmt.Fprintf(out, "llm:   %s (%s)\n", r.Verdict.String(), r.Reason)
+						} else {
+							fmt.Fprintf(out, "llm:   %s\n", r.Verdict.String())
 						}
 					}
 				}
