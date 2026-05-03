@@ -59,10 +59,14 @@ func logHistory(cfg config.Config, query, command, verdict, result string) {
 func newClientForBackend(cfg config.Config, backend string) (llm.Client, error) {
 	switch backend {
 	case "openai":
-		if cfg.OpenAI.APIKey == "" {
-			return nil, fmt.Errorf("openai: api_key not set in config")
+		apiKey := cfg.OpenAI.APIKey
+		if apiKey == "" {
+			apiKey = os.Getenv("OPENAI_API_KEY")
 		}
-		return llm.NewOpenAIClient(cfg.OpenAI.APIKey, cfg.OpenAI.Model, ""), nil
+		if apiKey == "" {
+			return nil, fmt.Errorf("openai: api_key not set (config 또는 OPENAI_API_KEY 환경 변수)")
+		}
+		return llm.NewOpenAIClient(apiKey, cfg.OpenAI.Model, ""), nil
 	default:
 		return llm.NewOllamaClient(cfg.Ollama.Host, cfg.Ollama.Model), nil
 	}

@@ -12,11 +12,14 @@ git log --oneline -n 5
 ## 요구 사항
 
 - macOS (Apple Silicon 또는 Intel)
+- Go (소스 빌드 시)
 - [Ollama](https://ollama.ai) (로컬 LLM, 기본값) 또는 OpenAI API 키
 
 ## 설치
 
 ### Homebrew (권장)
+
+> v0.1.0 정식 릴리즈 publish 전까지는 [소스 빌드](#소스-빌드)를 사용하세요.
 
 ```bash
 brew tap biddan606/asksh
@@ -24,6 +27,8 @@ brew install asksh
 ```
 
 ### 직접 다운로드
+
+> 정식 릴리즈 publish 전에는 사용할 수 없습니다. [소스 빌드](#소스-빌드)를 사용하세요.
 
 [Releases](https://github.com/biddan606/asksh/releases) 페이지에서 최신 버전을 다운로드합니다.
 
@@ -45,7 +50,7 @@ sudo mv asksh /usr/local/bin/
 ```bash
 git clone https://github.com/biddan606/asksh
 cd asksh
-go build -o asksh ./...
+go build -o asksh .
 ```
 
 ## 초기 설정
@@ -61,6 +66,9 @@ asksh config
 ```bash
 # Ollama 설치 후 모델 다운로드
 ollama pull qwen2.5-coder:7b
+
+# Ollama 서버가 실행 중인지 확인 (앱이나 서비스로 이미 실행 중이면 생략)
+ollama serve
 ```
 
 ### OpenAI 사용 시
@@ -76,7 +84,7 @@ export OPENAI_API_KEY=sk-...
 ```
 asksh <자연어 쿼리>       번역 및 실행
 asksh config             설정 마법사
-asksh --dry-run <쿼리>   번역만, 실행하지 않음
+asksh --dry-run <쿼리>   쿼리/컨텍스트/안전성 정보만 출력 (LLM 번역·실행 없음)
 asksh --ollama <쿼리>    Ollama 백엔드 강제
 asksh --openai <쿼리>    OpenAI 백엔드 강제
 asksh --version
@@ -102,7 +110,7 @@ asksh "현재 실행 중인 Node 프로세스 목록"
 asksh "find all files larger than 100MB"
 asksh "show disk usage by directory"
 
-# 실행 없이 확인만
+# 안전성 검사만 미리 확인 (번역·실행 없음)
 asksh --dry-run "rm -rf ./node_modules"
 ```
 
