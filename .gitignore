@@ -1,5 +1,20 @@
 # Build artifact (go build -o asksh ./main.go)
 /asksh
 
+# goreleaser output
+/dist/
+
+# Go test artifacts
+*.test
+coverage.out
+*.out
+
+# Environment variables
+.env
+.env.*
+
 # macOS Finder metadata
 .DS_Store
+
+# Claude Code local settings
+.claude/settings.local.json
