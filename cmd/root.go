@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/biddan606/asksh/internal/config"
 	shellctx "github.com/biddan606/asksh/internal/context"
 	"github.com/spf13/cobra"
 )
@@ -12,12 +13,13 @@ import (
 const version = "0.1.0-dev"
 
 func Execute() {
-	if err := NewRootCmd().Execute(); err != nil {
+	cfg, _ := config.Load(config.ConfigPath())
+	if err := NewRootCmd(cfg).Execute(); err != nil {
 		os.Exit(1)
 	}
 }
 
-func NewRootCmd() *cobra.Command {
+func NewRootCmd(cfg config.Config) *cobra.Command {
 	var dryRun bool
 	var useOllama bool
 	var useOpenAI bool
@@ -33,13 +35,21 @@ func NewRootCmd() *cobra.Command {
 				fmt.Fprintln(out, "[execution not yet implemented]")
 				return nil
 			}
+
+			backend := cfg.Backend.Default
+			if useOllama {
+				backend = "ollama"
+			} else if useOpenAI {
+				backend = "openai"
+			}
+
 			sc, err := shellctx.Collect()
 			if err != nil {
 				return err
 			}
 			query := strings.Join(args, " ")
 			fmt.Fprintln(out, "query:", query)
-			fmt.Fprintf(out, "cwd=%s os=%s shell=%s\n", sc.CWD, sc.OS, sc.Shell)
+			fmt.Fprintf(out, "cwd=%s os=%s shell=%s backend=%s\n", sc.CWD, sc.OS, sc.Shell, backend)
 			return nil
 		},
 	}

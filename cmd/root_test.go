@@ -6,11 +6,16 @@ import (
 	"testing"
 
 	"github.com/biddan606/asksh/cmd"
+	"github.com/biddan606/asksh/internal/config"
 )
 
 func executeCommand(args ...string) (string, error) {
+	return executeCommandWithConfig(config.DefaultConfig(), args...)
+}
+
+func executeCommandWithConfig(cfg config.Config, args ...string) (string, error) {
 	buf := new(bytes.Buffer)
-	root := cmd.NewRootCmd()
+	root := cmd.NewRootCmd(cfg)
 	root.SetOut(buf)
 	root.SetErr(buf)
 	root.SetArgs(args)
@@ -180,5 +185,51 @@ func TestDryRunQueryBeforeContext(t *testing.T) {
 	}
 	if queryIdx >= cwdIdx {
 		t.Errorf("query: line should appear before cwd= line, got: %q", out)
+	}
+}
+
+func TestDryRunShowsBackend(t *testing.T) {
+	out, err := executeCommand("--dry-run", "x")
+	if err != nil {
+		t.Fatalf("--dry-run returned error: %v", err)
+	}
+	if !strings.Contains(out, "backend=ollama") {
+		t.Errorf("expected backend=ollama in output, got: %q", out)
+	}
+}
+
+func TestDryRunOllamaFlagOverridesConfig(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Backend.Default = "openai"
+	out, err := executeCommandWithConfig(cfg, "--ollama", "--dry-run", "x")
+	if err != nil {
+		t.Fatalf("--ollama returned error: %v", err)
+	}
+	if !strings.Contains(out, "backend=ollama") {
+		t.Errorf("--ollama flag should override config to ollama, got: %q", out)
+	}
+}
+
+func TestDryRunOpenAIFlagOverridesConfig(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Backend.Default = "ollama"
+	out, err := executeCommandWithConfig(cfg, "--openai", "--dry-run", "x")
+	if err != nil {
+		t.Fatalf("--openai returned error: %v", err)
+	}
+	if !strings.Contains(out, "backend=openai") {
+		t.Errorf("--openai flag should override config to openai, got: %q", out)
+	}
+}
+
+func TestDryRunUsesConfigBackend(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Backend.Default = "openai"
+	out, err := executeCommandWithConfig(cfg, "--dry-run", "x")
+	if err != nil {
+		t.Fatalf("--dry-run returned error: %v", err)
+	}
+	if !strings.Contains(out, "backend=openai") {
+		t.Errorf("config backend=openai should be used when no flag set, got: %q", out)
 	}
 }
